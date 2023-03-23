@@ -41,11 +41,11 @@ class ImportZipCodes extends Command
     {
         $start = now();
 
-        $path = $this->option('path') ?? storage_path('app/CPdescarga/');
+        $path = $this->option('path') ?? storage_path('app/public/CPdescarga/');
 
         $this->info(PHP_EOL . "Reading data from $path");
 
-        $files = glob(storage_path('app/CPdescarga/*.{csv}'), GLOB_BRACE);
+        $files = glob(storage_path('app/public/CPdescarga/*.{csv}'), GLOB_BRACE);
         $total_files = count($files);
         foreach ($files as $key => $file) {
             $this->info(PHP_EOL . $file);

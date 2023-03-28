@@ -14,7 +14,6 @@ use Illuminate\Support\Str;
 use JetBrains\PhpStorm\NoReturn;
 use League\Csv\Reader;
 use League\Csv\Statement;
-use Spatie\SimpleExcel\SimpleExcelReader;
 
 class ImportZipCodes extends Command
 {
@@ -42,65 +41,72 @@ class ImportZipCodes extends Command
     {
         $start = now();
 
-        $path = $this->option('path') ?? storage_path('app/CPdescarga.txt');
+        $path = $this->option('path') ?? storage_path('app/public/CPdescarga/');
 
         $this->info(PHP_EOL . "Reading data from $path");
 
-        $reader = Reader::createFromPath($path);
-        $reader->setDelimiter('|');
-        $reader->setHeaderOffset(1);
+        $files = glob(storage_path('app/public/CPdescarga/*.{csv}'), GLOB_BRACE);
+        $total_files = count($files);
+        foreach ($files as $key => $file) {
+            $this->info(PHP_EOL . $file);
+            $reader = Reader::createFromPath($file);
+            $reader->setDelimiter(';');
+            $reader->setHeaderOffset(0);
 
-        $stmt = Statement::create()
-            ->offset(2);
-        $records = $stmt->process($reader);
+            $stmt = Statement::create()
+                ->offset(2);
+            $records = $stmt->process($reader);
 
-        $total = $records->count();
-        $this->info("Records to process: $total");
+            $total = $records->count();
+            $this->info("Records to process: $total");
 
-        $this->withProgressBar(collect($records), function ($row) {
-            $federalEntity = FederalEntity::firstOrCreate(
-                ['key' => intval($row['c_estado'])],
-                [
-                    'key'  => $row['c_estado'],
-                    'name' => $row['d_estado'],
-                    'code' => $row['c_CP']
-                ]
-            );
+            $this->withProgressBar(collect($records), function ($row) {
+                $federalEntity = FederalEntity::firstOrCreate(
+                    ['key' => intval($row['c_estado'])],
+                    [
+                        'key' => $row['c_estado'],
+                        'name' => $row['d_estado'],
+                        'code' => $row['c_CP']
+                    ]
+                );
 
-            $municipality = Municipality::firstOrCreate(
-                ['key' => intval($row['c_mnpio'])],
-                [
-                    'key'  => $row['c_mnpio'],
-                    'name' => $row['D_mnpio']
-                ]
-            );
+                $municipality = Municipality::firstOrCreate(
+                    ['key' => intval($row['c_mnpio'])],
+                    [
+                        'key' => $row['c_mnpio'],
+                        'name' => $row['D_mnpio']
+                    ]
+                );
 
-            $zipCode = ZipCode::firstOrCreate(
-                [
-                    'zip_code'        => $row['d_codigo'],
-                    'municipality_id' => $municipality->id
-                ],
-                [
-                    'zip_code'          => $row['d_codigo'],
-                    'locality'          => $row['d_ciudad'],
-                    'federal_entity_id' => $federalEntity->id,
-                    'municipality_id'   => $municipality->id,
-                ]
-            );
+                $zipCode = ZipCode::firstOrCreate(
+                    [
+                        'zip_code' => $row['d_codigo'],
+                        'municipality_id' => $municipality->id
+                    ],
+                    [
+                        'zip_code' => $row['d_codigo'],
+                        'locality' => $row['d_ciudad'],
+                        'federal_entity_id' => $federalEntity->id,
+                        'municipality_id' => $municipality->id,
+                    ]
+                );
 
-            $settlementType = SettlementType::firstOrCreate(
-                ['name' => $row['d_tipo_asenta']],
-                ['name' => $row['d_tipo_asenta']]
-            );
+                $settlementType = SettlementType::firstOrCreate(
+                    ['name' => $row['d_tipo_asenta']],
+                    ['name' => $row['d_tipo_asenta']]
+                );
 
-            Settlement::create([
-                'key'                => $row['id_asenta_cpcons'],
-                'name'               => $row['d_asenta'],
-                'zone_type'          => ZoneType::from(strtoupper($row['d_zona']))->value,
-                'settlement_type_id' => $settlementType->id,
-                'zip_code_id'        => $zipCode->id
-            ]);
-        });
+                Settlement::create([
+                    'key' => $row['id_asenta_cpcons'],
+                    'name' => $row['d_asenta'],
+                    'zone_type' => ZoneType::from(strtoupper($row['d_zona']))->value,
+                    'settlement_type_id' => $settlementType->id,
+                    'zip_code_id' => $zipCode->id
+                ]);
+            });
+            $number_file = $key + 1;
+            $this->info(PHP_EOL . "File number $number_file processed of $total_files");
+        }
 
         $time = $start->diffInMinutes(now(), false);
         $this->info(PHP_EOL . "Processed in $time minutes");

@@ -22,7 +22,7 @@ class ImportZipCodes extends Command
      *
      * @var string
      */
-    protected $signature = 'zipcodes:import {--path= : Path to .csv or .txt file to import}';
+    protected $signature = 'zipcodes:import {--path= : Path to .csv or .txt file to import, default is storage/app/public/CPdescarga/} {--number= : Number of folder to import, default is 1}';
 
     /**
      * The console command description.
@@ -43,9 +43,11 @@ class ImportZipCodes extends Command
 
         $path = $this->option('path') ?? storage_path('app/public/CPdescarga/');
 
+        $folder = $this->option('number') ?? 1;
+
         $this->info(PHP_EOL . "Reading data from $path");
 
-        $files = glob(storage_path('app/public/CPdescarga/*.{csv}'), GLOB_BRACE);
+        $files = glob(storage_path("app/public/CPdescarga/$folder/*.{csv}"), GLOB_BRACE);
         $total_files = count($files);
         foreach ($files as $key => $file) {
             $this->info(PHP_EOL . $file);
